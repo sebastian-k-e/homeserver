@@ -1,0 +1,113 @@
+version: '3.6'
+services:
+  homebridge:
+    container_name: homebridge
+    image: oznu/homebridge:no-avahi-arm32v6
+    restart: unless-stopped
+    environment:
+    - TZ=Etc/UTC
+    - PGID=1000
+    - PUID=1000
+    - HOMEBRIDGE_CONFIG_UI=1
+    - HOMEBRIDGE_CONFIG_UI_PORT=%WUIPort%
+    volumes:
+    - ./volumes/homebridge:/homebridge
+  #ports:
+  #  - "4040:4040"
+    network_mode: host
+  nextcloud:
+    container_name: nextcloud
+    image: nextcloud
+    restart: unless-stopped
+    environment:
+    - MYSQL_HOST=nextcloud_db
+    - MYSQL_PASSWORD=IOtSt4ckmySqlDbPw
+    - MYSQL_DATABASE=nextcloud
+    - MYSQL_USER=nextcloud
+    ports:
+    - "9321:80"
+    volumes:
+    - ./volumes/nextcloud/html:/var/www/html
+    depends_on:
+    - nextcloud_db
+    networks:
+    - iotstack_nw
+    - nextcloud_internal
+
+  portainer:
+    container_name: portainer
+    image: portainer/portainer
+    restart: unless-stopped
+    ports:
+    - "9002:9000"
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    - ./volumes/portainer/data:/data
+    networks:
+    - iotstack_nw
+  portainer-ce:
+    container_name: portainer-ce
+    image: portainer/portainer-ce
+    restart: unless-stopped
+    ports:
+    - "8000:8000"
+    - "9000:9000"
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    - ./volumes/portainer-ce/data:/data
+  nextcloud_db:
+    container_name: nextcloud_db
+    image: ghcr.io/linuxserver/mariadb
+    restart: unless-stopped
+    environment:
+    - TZ=Etc/UTC
+    - PUID=1000
+    - PGID=1000
+    - MYSQL_ROOT_PASSWORD=IOtSt4ckToorMySqlDb
+    - MYSQL_PASSWORD=IOtSt4ckmySqlDbPw
+    - MYSQL_DATABASE=nextcloud
+    - MYSQL_USER=nextcloud
+    volumes:
+    - ./volumes/nextcloud/db:/config
+    networks:
+    - nextcloud_internal
+networks:
+  iotstack_nw: # Exposed by your host.
+    # external: true
+    name: IOTstack_Net
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+      - subnet: 10.77.60.0/24
+        # - gateway: 10.77.60.1
+
+  iotstack_nw_internal: # For interservice communication. No access to outside
+    name: IOTstack_Net_Internal
+    driver: bridge
+    internal: true
+    ipam:
+      driver: default
+      config:
+      - subnet: 10.77.76.0/24
+        # - gateway: 10.77.76.1
+  vpn_nw: # Network specifically for VPN
+    name: IOTstack_VPN
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+      - subnet: 10.77.88.0/24
+        # - gateway: 192.18.200.1
+
+  nextcloud_internal: # Network for NextCloud service
+    name: IOTstack_NextCloud
+    driver: bridge
+    internal: true
+
+  # default:
+  #   external: true
+  #   name: iotstack_nw
+
+  # hosts_nw:
+  #   driver: hosts
